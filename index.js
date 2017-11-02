@@ -53,7 +53,8 @@ const formatStation = (station) => ({
 	name: formatName(station.etidesStnName),
 	commonName: formatName(station.commonName),
 	lat: parseFloat(station.lat),
-	lon: parseFloat(station.lon)
+	lon: parseFloat(station.lon),
+	distance: station.distance
 });
 
 const formatPrediction = (prediction, timeZoneCorrection) => {
