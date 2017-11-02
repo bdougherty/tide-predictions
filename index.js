@@ -3,7 +3,8 @@ const { promisify } = require('util');
 const { toLaxTitleCase: titleCase } = require('titlecase');
 const fetch = require('node-fetch');
 const distance = require('@turf/distance');
-const moment = require('moment');
+const moment = require('moment-timezone');
+const geoTz = require('geo-tz');
 const map = require('async/map');
 const etag = require('etag');
 
@@ -49,25 +50,35 @@ const formatName = (name) => {
 	return titleCase(`${name}`.toLowerCase().replace('u.s.', 'U.S.'));
 };
 
-const formatStation = (station) => ({
-	id: station.stationId,
-	name: formatName(station.etidesStnName),
-	commonName: formatName(station.commonName),
-	lat: parseFloat(station.lat),
-	lon: parseFloat(station.lon),
-	state: station.state,
-	region: station.region,
-	timeZoneOffset: parseInt(station.timeZoneCorr, 10),
-	distance: station.distance
-});
+const formatStation = (station) => {
+	const lat = parseFloat(station.lat);
+	const lon = parseFloat(station.lon);
+	const tz = geoTz.tz(lat, lon);
 
-const formatPrediction = (prediction, timeZoneCorrection) => {
-	const parsedTime = moment(prediction.t, 'YYYY-MM-DD HH:mm').utcOffset(parseInt(timeZoneCorrection, 10), true);
+	return {
+		id: station.stationId,
+		name: formatName(station.etidesStnName),
+		commonName: formatName(station.commonName),
+		lat,
+		lon,
+		state: station.state,
+		region: station.region,
+		timeZone: tz,
+		distance: station.distance
+	};
+};
+
+const formatPrediction = (prediction, station) => {
+	const lat = parseFloat(station.lat);
+	const lon = parseFloat(station.lon);
+	const tz = geoTz.tz(lat, lon);
+
+	const parsedTime = moment.tz(prediction.t, 'YYYY-MM-DD HH:mm', tz);
 
 	return {
 		type: prediction.type === 'H' ? 'high' : 'low',
 		height: parseFloat(prediction.v),
-		time: parsedTime,
+		time: parsedTime.format(),
 		unixTime: parsedTime.unix()
 	};
 };
@@ -90,7 +101,7 @@ const getStationPredictions = async (station, days) => {
 	const tides = await fetchPredictionsForStation(station, days);
 	return {
 		...formatStation(station),
-		predictions: tides.predictions.map((prediction) => formatPrediction(prediction, station.timeZoneCorr))
+		predictions: tides.predictions.map((prediction) => formatPrediction(prediction, station))
 	};
 };
 

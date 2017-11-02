@@ -14,8 +14,9 @@
     "@turf/distance": "^5.0.0",
     "async": "^2.5.0",
     "etag": "^1.8.1",
+    "geo-tz": "^3.3.3",
     "micro": "^9.0.0",
-    "moment": "^2.19.1",
+    "moment-timezone": "^0.5.14",
     "node-fetch": "^1.7.3",
     "titlecase": "^1.1.2"
   },
