@@ -5,6 +5,7 @@ const fetch = require('node-fetch');
 const distance = require('@turf/distance');
 const moment = require('moment');
 const map = require('async/map');
+const etag = require('etag');
 
 const asyncMap = promisify(map);
 const appName = process.env.APPLICATION;
@@ -108,21 +109,49 @@ const individualStationHandler = async (stationId) => {
 	return JSON.stringify(response);
 };
 
-module.exports = async (req) => {
-	if (req.method !== 'GET') {
+const setAccessControlHeaders = (res) => {
+	res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+	res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Accept');
+	res.setHeader('Access-Control-Allow-Max-Age', 86400);
+};
+
+const setCacheHeaders = (res, data, hours = 1) => {
+	res.setHeader('Expires', moment().add(hours, 'hour').utc().format('ddd, D MMM YYYY H:mm:ss [GMT]'));
+	res.setHeader('Cache-Control', `public, max-age=${hours * 3600}`);
+	res.setHeader('ETag', etag(data));
+};
+
+module.exports = async (req, res) => {
+	if (req.method !== 'GET' && req.method !== 'OPTIONS') {
 		const methodNotAllowedError = new Error('Method Not Allowed');
 		methodNotAllowedError.statusCode = 405;
 		throw methodNotAllowedError;
 	}
 
+	res.setHeader('Access-Control-Allow-Origin', '*');
+
 	let matches = null;
 
 	if ((matches = req.url.match(/^\/tides\/(\d+)$/))) {
-		return individualStationHandler(matches[1]);
+		if (req.method === 'OPTIONS') {
+			setAccessControlHeaders(res);
+			return '';
+		}
+
+		const data = await individualStationHandler(matches[1]);
+		setCacheHeaders(res, data);
+		return data;
 	}
 
 	if ((matches = req.url.match(/^\/closest\/([.-\d]+),([.-\d]+)$/))) {
-		return closestHandler(matches[1], matches[2]);
+		if (req.method === 'OPTIONS') {
+			setAccessControlHeaders(res);
+			return '';
+		}
+
+		const data = await closestHandler(matches[1], matches[2]);
+		setCacheHeaders(res, data);
+		return data;
 	}
 
 	const notFoundError = new Error('Not Found');
