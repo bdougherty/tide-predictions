@@ -7,7 +7,12 @@ const moment = require('moment');
 const map = require('async/map');
 
 const asyncMap = promisify(map);
+const appName = process.env.APPLICATION;
 const ONE_DAY = 1000 * 60 * 60 * 24;
+
+if (!appName) {
+	throw new Error('Please set your application name in the `APPLICATION` environment variable.');
+}
 
 let stations = new Map();
 
@@ -27,7 +32,7 @@ const fetchPredictionsForStation = async (station, days = 2) => {
 	params.set('begin_date', moment().subtract(1, 'day').format('YYYYMMDD'));
 	params.set('range', 24 * (days + 2));
 	params.set('product', 'predictions');
-	params.set('application', 'TideTracker');
+	params.set('application', appName);
 	params.set('datum', 'MLLW');
 	params.set('time_zone', 'lst_ldt');
 	params.set('units', 'english');
