@@ -68,7 +68,6 @@ const formatPrediction = (prediction, timeZoneCorrection) => {
 		type: prediction.type === 'H' ? 'high' : 'low',
 		height: parseFloat(prediction.v),
 		time: parsedTime,
-		rawTime: prediction.t,
 		unixTime: parsedTime.unix()
 	};
 };
