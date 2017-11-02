@@ -109,7 +109,7 @@ const closestHandler = async (lat, lon) => {
 
 const individualStationHandler = async (stationId) => {
 	const station = stations.get(stationId);
-	const response = await getStationPredictions(station, 5);
+	const response = await getStationPredictions(station, 7);
 	return JSON.stringify(response);
 };
 
