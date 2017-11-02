@@ -55,16 +55,20 @@ const formatStation = (station) => ({
 	commonName: formatName(station.commonName),
 	lat: parseFloat(station.lat),
 	lon: parseFloat(station.lon),
+	state: station.state,
+	region: station.region,
+	timeZoneOffset: parseInt(station.timeZoneCorr, 10),
 	distance: station.distance
 });
 
 const formatPrediction = (prediction, timeZoneCorrection) => {
-	const parsedTime = moment(`${prediction.t} ${timeZoneCorrection}`, 'YYYY-MM-DD HH:mm Z');
+	const parsedTime = moment(prediction.t, 'YYYY-MM-DD HH:mm').utcOffset(parseInt(timeZoneCorrection, 10), true);
 
 	return {
 		type: prediction.type === 'H' ? 'high' : 'low',
 		height: parseFloat(prediction.v),
-		time: parsedTime.toString(),
+		time: parsedTime,
+		rawTime: prediction.t,
 		unixTime: parsedTime.unix()
 	};
 };
