@@ -16,18 +16,18 @@ if (!appName) {
 	throw new Error('Please set your application name in the `APPLICATION` environment variable.');
 }
 
-let stations = new Map();
+let tideStations = new Map();
 
-async function fetchStations() {
+async function fetchTideStations() {
 	const response = await fetch('https://tidesandcurrents.noaa.gov/mdapi/v0.6/webapi/tidepredstations.json');
 	const json = await response.json();
-	stations = new Map(json.stationList.map((station) => [station.stationId, station]));
+	tideStations = new Map(json.stationList.map((station) => [station.stationId, station]));
 }
 
-setInterval(fetchStations, ONE_DAY);
-fetchStations();
+setInterval(fetchTideStations, ONE_DAY);
+fetchTideStations();
 
-const fetchPredictionsForStation = async (station, days = 2) => {
+const fetchPredictionsForTideStation = async (station, days = 2) => {
 	const endpoint = new URL('https://tidesandcurrents.noaa.gov/api/datagetter');
 	const params = endpoint.searchParams;
 	params.set('station', station.stationId);
@@ -46,19 +46,19 @@ const fetchPredictionsForStation = async (station, days = 2) => {
 	return json;
 };
 
-const formatName = (name) => {
+const formatTideStationName = (name) => {
 	return titleCase(`${name}`.toLowerCase().replace('u.s.', 'U.S.'));
 };
 
-const formatStation = (station) => {
+const formatTideStation = (station) => {
 	const lat = parseFloat(station.lat);
 	const lon = parseFloat(station.lon);
 	const tz = geoTz.tz(lat, lon);
 
 	return {
 		id: station.stationId,
-		name: formatName(station.etidesStnName),
-		commonName: formatName(station.commonName),
+		name: formatTideStationName(station.etidesStnName),
+		commonName: formatTideStationName(station.commonName),
 		lat,
 		lon,
 		state: station.state,
@@ -68,7 +68,7 @@ const formatStation = (station) => {
 	};
 };
 
-const formatPrediction = (prediction, station) => {
+const formatTidePrediction = (prediction, station) => {
 	const lat = parseFloat(station.lat);
 	const lon = parseFloat(station.lon);
 	const tz = geoTz.tz(lat, lon);
@@ -83,42 +83,50 @@ const formatPrediction = (prediction, station) => {
 	};
 };
 
-const calculateDistanceToStation = (lon, lat, station) => {
+const calculateDistance = ([lat1, lon1], [lat2, lon2]) => {
 	const fromPoint = [
-		parseFloat(lon),
-		parseFloat(lat)
+		parseFloat(lon1),
+		parseFloat(lat1)
 	];
 
-	const stationPoint = [
-		parseFloat(station.lon),
-		parseFloat(station.lat)
+	const toPoint = [
+		parseFloat(lon2),
+		parseFloat(lat2)
 	];
 
-	return distance(fromPoint, stationPoint);
+	return distance(fromPoint, toPoint);
 };
 
 const getStationPredictions = async (station, days) => {
-	const tides = await fetchPredictionsForStation(station, days);
+	const tides = await fetchPredictionsForTideStation(station, days);
 	return {
-		...formatStation(station),
-		predictions: tides.predictions.map((prediction) => formatPrediction(prediction, station))
+		...formatTideStation(station),
+		predictions: tides.predictions.map((prediction) => formatTidePrediction(prediction, station))
 	};
 };
 
 const closestHandler = async (lat, lon) => {
-	const stationsWithDistances = Array.from(stations.values()).map((station) => ({
+	const stationsWithDistances = Array.from(tideStations.values()).map((station) => ({
 		...station,
-		distance: calculateDistanceToStation(lon, lat, station)
+		distance: calculateDistance([lat, lon], [station.lat, station.lon])
 	}));
 
 	stationsWithDistances.sort((a, b) => a.distance - b.distance);
 
-	const stationsWithPredictions = await asyncMap(stationsWithDistances.slice(0, 10), async (station) => getStationPredictions(station));
-	return JSON.stringify(stationsWithPredictions);
+	const stationsWithPredictions = await asyncMap(stationsWithDistances.slice(0, 10), async (station) => {
+		return getStationPredictions(station);
+	});
+
+	return JSON.stringify({
+		lat,
+		lon,
+
+		stations: stationsWithPredictions
+	});
 };
 
 const individualStationHandler = async (stationId) => {
-	const station = stations.get(stationId);
+	const station = tideStations.get(stationId);
 	const response = await getStationPredictions(station, 7);
 	return JSON.stringify(response);
 };
