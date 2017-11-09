@@ -153,25 +153,27 @@ module.exports = async (req, res) => {
 	res.setHeader('Access-Control-Allow-Origin', '*');
 
 	let matches = null;
+	let matchedRoute = null;
 
-	if ((matches = req.url.match(/^\/tides\/(\d+)$/))) {
-		if (req.method === 'OPTIONS') {
-			setAccessControlHeaders(res);
-			return '';
+	const routes = new Map([
+		[/^\/tides\/(\d+)$/, individualStationHandler],
+		[/^\/closest\/([.-\d]+),([.-\d]+)$/, closestHandler]
+	]);
+
+	for (const [route] of routes) {
+		if ((matches = req.url.match(route))) {
+			if (req.method === 'OPTIONS') {
+				setAccessControlHeaders(res);
+				return '';
+			}
+
+			matchedRoute = route;
+			break;
 		}
-
-		const data = await individualStationHandler(matches[1]);
-		setCacheHeaders(res, data);
-		return data;
 	}
 
-	if ((matches = req.url.match(/^\/closest\/([.-\d]+),([.-\d]+)$/))) {
-		if (req.method === 'OPTIONS') {
-			setAccessControlHeaders(res);
-			return '';
-		}
-
-		const data = await closestHandler(matches[1], matches[2]);
+	if (matchedRoute) {
+		const data = await routes.get(matchedRoute)(...matches.slice(1));
 		setCacheHeaders(res, data);
 		return data;
 	}
