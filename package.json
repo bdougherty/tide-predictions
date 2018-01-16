@@ -1,9 +1,14 @@
 {
   "name": "tide-predictions",
   "version": "1.0.0",
+  "description": "A microservice to find the nearest tide prediction station and get predictions for the next few days.",
   "main": "index.js",
   "author": "Brad Dougherty <me@brad.is>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bdougherty/tide-predictions.git"
+  },
   "private": true,
   "scripts": {
     "start": "micro",
