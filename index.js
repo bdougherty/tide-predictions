@@ -64,7 +64,8 @@ const formatTideStation = (station) => {
 		state: station.state,
 		region: station.region,
 		timeZone: tz,
-		distance: station.distance
+		distance: station.distance,
+		type: station.stationType === 'R' ? 'harmonic' : 'subordinate'
 	};
 };
 
@@ -99,28 +100,43 @@ const calculateDistance = ([lat1, lon1], [lat2, lon2]) => {
 
 const getStationPredictions = async (station, days) => {
 	const tides = await fetchPredictionsForTideStation(station, days);
+
 	return {
 		...formatTideStation(station),
 		predictions: tides.predictions.map((prediction) => formatTidePrediction(prediction, station))
 	};
 };
 
-const closestHandler = async (lat, lon) => {
-	const stationsWithDistances = Array.from(tideStations.values()).map((station) => ({
+const getStationsNear = (lat, lon, limit = 10) => {
+	const stationsWithDistances = [...tideStations.values()].map((station) => ({
 		...station,
 		distance: calculateDistance([lat, lon], [station.lat, station.lon])
 	}));
 
 	stationsWithDistances.sort((a, b) => a.distance - b.distance);
+	return stationsWithDistances.slice(0, limit);
+};
 
-	const stationsWithPredictions = await asyncMap(stationsWithDistances.slice(0, 10), async (station) => {
+const closestHandler = async (lat, lon) => {
+	const closestStation = getStationsNear(lat, lon)[0];
+
+	return JSON.stringify({
+		lat: parseFloat(lat),
+		lon: parseFloat(lon),
+		station: await getStationPredictions(closestStation, 7)
+	});
+};
+
+const nearHandler = async (lat, lon) => {
+	const nearbyStations = getStationsNear(lat, lon, 10);
+
+	const stationsWithPredictions = await asyncMap(nearbyStations, async (station) => {
 		return getStationPredictions(station);
 	});
 
 	return JSON.stringify({
-		lat,
-		lon,
-
+		lat: parseFloat(lat),
+		lon: parseFloat(lon),
 		stations: stationsWithPredictions
 	});
 };
@@ -129,6 +145,12 @@ const individualStationHandler = async (stationId) => {
 	const station = tideStations.get(stationId);
 	const response = await getStationPredictions(station, 7);
 	return JSON.stringify(response);
+};
+
+const allStationsHandler = async () => {
+	return JSON.stringify({
+		stations: [...tideStations.values()].map((station) => formatTideStation(station))
+	});
 };
 
 const setAccessControlHeaders = (res) => {
@@ -151,13 +173,16 @@ module.exports = async (req, res) => {
 	}
 
 	res.setHeader('Access-Control-Allow-Origin', '*');
+	res.setHeader('Content-Type', 'application/json');
 
 	let matches = null;
 	let matchedRoute = null;
 
 	const routes = new Map([
-		[/^\/tides\/(\d+)$/, individualStationHandler],
-		[/^\/closest\/([.-\d]+),([.-\d]+)$/, closestHandler]
+		[/^\/(\d+)$/, individualStationHandler],
+		[/^\/all$/, allStationsHandler],
+		[/^\/closest\/([.-\d]+),([.-\d]+)$/, closestHandler],
+		[/^\/near\/([.-\d]+),([.-\d]+)$/, nearHandler]
 	]);
 
 	for (const [route] of routes) {
