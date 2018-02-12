@@ -1,0 +1,17 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch via NPM",
+			"program": "${workspaceRoot}/node_modules/micro-dev/bin/micro-dev.js",
+			"args": [
+				"index.js"
+			],
+			"env": {
+				"APPLICATION": "Tide Predictions API"
+			}
+		}
+	]
+}
