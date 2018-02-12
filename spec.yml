@@ -1,0 +1,215 @@
+openapi: "3.0.0"
+info:
+  title: Tide Predictions API
+  version: "1.0.0"
+  description: An API to find the nearest tide prediction station and get predictions for the next few days.
+  contact:
+    name: Tide Predictions API
+    url: https://github.com/bdougherty/tide-predictions
+tags:
+  - name: stations
+  - name: predictions
+servers:
+  - url: "https://tide-predictions.now.sh"
+    description: Production API Server
+  - url: "http://localhost:{port}"
+    description: Dev API Server
+    variables:
+      port:
+        default: "3000"
+paths:
+  /all:
+    get:
+      summary: Get a list of all available prediction stations.
+      description: Does not include any predictions.
+      operationId: getAllStations
+      tags:
+        - stations
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Stations"
+  /near/{lat},{lon}:
+    get:
+      summary: Find the 10 closest prediction stations to the specified latitude and longitude.
+      description: Includes predictions for yesterday, today, and the next 2 days for each station.
+      operationId: getStationsNearPosition
+      tags:
+        - stations
+        - predictions
+      parameters:
+        - $ref: '#/components/parameters/lat'
+        - $ref: '#/components/parameters/lon'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationsWithPredictions"
+        404:
+          $ref: "#/components/responses/Error"
+  /closest/{lat},{lon}:
+    get:
+      summary: Find the closest prediction station to the specified latitude and longitude.
+      description: Includes predictions for yesterday, today, and the next 7 days.
+      operationId: getStationClosestToPosition
+      tags:
+        - stations
+        - predictions
+      parameters:
+        - $ref: '#/components/parameters/lat'
+        - $ref: '#/components/parameters/lon'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationWithPredictions"
+        404:
+          $ref: "#/components/responses/Error"
+  /{id}:
+    get:
+      summary: Get tide predictions for a specific station.
+      description: Includes predictions for yesterday, today, and the next 7 days.
+      operationId: getStation
+      tags:
+        - stations
+        - predictions
+      parameters:
+        - $ref: '#/components/parameters/stationId'
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StationWithPredictions"
+        404:
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    lat:
+      name: lat
+      in: path
+      required: true
+      description: The latitude of the location to use.
+      schema:
+        $ref: "#/components/schemas/Latitude"
+    lon:
+      name: lon
+      in: path
+      required: true
+      description: The longitude of the location to use.
+      schema:
+        $ref: "#/components/schemas/Longitude"
+    stationId:
+      name: id
+      in: path
+      required: true
+      description: The ID of the station.
+      schema:
+        type: string
+  responses:
+    Error:
+      description: "Error"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Latitude:
+      type: number
+      minimum: -90
+      maximum: 90
+      example: -74.4771
+    Longitude:
+      type: number
+      minimum: -180
+      maximum: 180
+      example: 39.3426
+    Prediction:
+      properties:
+        type:
+          type: string
+          enum:
+            - "high"
+            - "low"
+        height:
+          type: number
+          format: float
+          example: 3.598
+        time:
+          type: string
+          format: date-time
+          example: "2018-02-11T04:41:00-05:00"
+        unixTime:
+          type: number
+          format: timestamp
+          example: 1518342060
+    Stations:
+      properties:
+        stations:
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/Station"
+    StationsWithPredictions:
+      properties:
+        stations:
+          type: array
+          items:
+            type: object
+            $ref: "#/components/schemas/StationWithPredictions"
+    Station:
+      properties:
+        id:
+          type: string
+          example: "8534836"
+        name:
+          type: string
+          example: "Longport (Inside), Great Egg Harbor Inlet"
+        commonName:
+          type: string
+          example: "Longport, Risely Channel"
+        lat:
+          $ref: "#/components/schemas/Latitude"
+        lon:
+          $ref: "#/components/schemas/Longitude"
+        state:
+          type: string
+          example: "NJ"
+        region:
+          type: string
+          example: "Outer Coast"
+        timeZone:
+          type: string
+          example: "America/New_York"
+        distance:
+          type: number
+          format: float
+          example: 0
+        type:
+          type: string
+          enum:
+            - "harmonic"
+            - "subordinate"
+    StationWithPredictions:
+      allOf:
+        - $ref: "#/components/schemas/Station"
+        - type: object
+          properties:
+            predictions:
+              type: array
+              items:
+                type: object
+                $ref: "#/components/schemas/Prediction"
+    Error:
+      properties:
+        message:
+          type: string
+          example: "Not Found"
