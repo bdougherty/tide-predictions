@@ -1,5 +1,6 @@
 const { URL } = require('url');
 const { promisify } = require('util');
+const { send } = require('micro');
 const { toLaxTitleCase: titleCase } = require('titlecase');
 const fetch = require('node-fetch');
 const distance = require('@turf/distance');
@@ -107,7 +108,22 @@ const getStationPredictions = async (station, days) => {
 	};
 };
 
+const validateLatitudeAndLongitude = (lat, lon) => {
+	lat = parseFloat(lat);
+	lon = parseFloat(lon);
+
+	if (lat < -90 || lat > 90) {
+		throw new RangeError('Invalid latitude');
+	}
+
+	if (lon < -180 || lon > 180) {
+		throw new RangeError('Invalid longitude');
+	}
+};
+
 const getStationsNear = (lat, lon, limit = 10) => {
+	validateLatitudeAndLongitude(lat, lon);
+
 	const stationsWithDistances = [...tideStations.values()].map((station) => ({
 		...station,
 		distance: calculateDistance([lat, lon], [station.lat, station.lon])
@@ -143,6 +159,11 @@ const nearHandler = async (lat, lon) => {
 
 const individualStationHandler = async (stationId) => {
 	const station = tideStations.get(stationId);
+
+	if (!station) {
+		throw new Error('Invalid station');
+	}
+
 	const response = await getStationPredictions(station, 7);
 	return JSON.stringify(response);
 };
@@ -198,12 +219,20 @@ module.exports = async (req, res) => {
 	}
 
 	if (matchedRoute) {
-		const data = await routes.get(matchedRoute)(...matches.slice(1));
-		setCacheHeaders(res, data);
-		return data;
+		try {
+			const data = await routes.get(matchedRoute)(...matches.slice(1));
+			setCacheHeaders(res, data);
+			send(res, 200, data);
+			return;
+		}
+		catch (err) {
+			send(res, 404, {
+				message: err.message
+			});
+		}
 	}
 
-	const notFoundError = new Error('Not Found');
-	notFoundError.statusCode = 404;
-	throw notFoundError;
+	send(res, 404, {
+		message: 'Not Found'
+	});
 };
